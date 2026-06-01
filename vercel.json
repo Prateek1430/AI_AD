@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/generate.js":           { "maxDuration": 60 },
+    "api/analyze-screenshot.js": { "maxDuration": 60 },
+    "api/generate-image.js":     { "maxDuration": 10 }
+  }
+}

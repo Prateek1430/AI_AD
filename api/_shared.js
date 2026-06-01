@@ -1,27 +1,13 @@
-import express from 'express'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { GoogleGenAI } from '@google/genai'
-import cors from 'cors'
-import dotenv from 'dotenv'
 
-// Loads GOOGLE_API_KEY from .env into process.env automatically
-dotenv.config()
+export const MODEL_CHAIN = [
+  'gemini-3.5-flash',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+]
 
-const app = express()
-app.use(express.json({ limit: '10mb' }))
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'] }))
-
-// Key comes from .env file — NEVER hardcode it here
-const apiKey = process.env.GOOGLE_API_KEY
-if (!apiKey) {
-  console.error('\n✗ GOOGLE_API_KEY missing. Add it to your .env file:\n  GOOGLE_API_KEY=your_key_here\n')
-  process.exit(1)
-}
-
-const genAI    = new GoogleGenerativeAI(apiKey)
-const imagenAI = new GoogleGenAI({ apiKey })
-
-const ASPECT_RATIOS = {
+export const ASPECT_RATIOS = {
   'Instagram':  '4:5',
   'Facebook':   '1:1',
   'LinkedIn':   '1:1',
@@ -31,7 +17,7 @@ const ASPECT_RATIOS = {
   'Twitter/X':  '16:9',
 }
 
-const PLATFORM_DIMS = {
+export const PLATFORM_DIMS = {
   'Instagram':  { w: 768,  h: 960  },
   'Facebook':   { w: 1024, h: 1024 },
   'LinkedIn':   { w: 1024, h: 1024 },
@@ -41,7 +27,6 @@ const PLATFORM_DIMS = {
   'Twitter/X':  { w: 1280, h: 720  },
 }
 
-const MODEL_CHAIN = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 function isRetryable(err) {
@@ -51,9 +36,54 @@ function isRetryable(err) {
          msg.includes('overloaded') || msg.includes('high demand')
 }
 
-// ─── Prompt builders ──────────────────────────────────────────────────────────
+export async function streamToResponse(res, contents) {
+  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY)
 
-function buildPrompt({ brandName, product, targetAudience, platform, objective }) {
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.flushHeaders()
+
+  let lastError = null
+
+  for (const modelName of MODEL_CHAIN) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await sleep(3000)
+
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { maxOutputTokens: 4096, temperature: 0.9 }
+        })
+
+        const result = await model.generateContentStream(contents)
+        res.write(`data: ${JSON.stringify({ model: modelName })}\n\n`)
+
+        for await (const chunk of result.stream) {
+          try {
+            const text = chunk.text()
+            if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`)
+          } catch (_) {}
+        }
+
+        res.write('data: [DONE]\n\n')
+        res.end()
+        return
+
+      } catch (err) {
+        lastError = err
+        if (isRetryable(err) && attempt === 0) continue
+        break
+      }
+    }
+  }
+
+  res.write(`data: ${JSON.stringify({ error: `All models unavailable. ${lastError?.message?.substring(0, 150)}` })}\n\n`)
+  res.write('data: [DONE]\n\n')
+  res.end()
+}
+
+export function buildPrompt({ brandName, product, targetAudience, platform, objective }) {
   return `You are a world-class Creative Director, Performance Marketer, Art Director and Senior Graphic Designer at a top-tier advertising agency (Ogilvy, Wieden+Kennedy, BBDO level).
 
 Create a complete, high-converting ad creative brief for:
@@ -112,7 +142,7 @@ Full concept optimized for direct response — aggressive CTA, urgency triggers,
 Write as if billing $500/hour. Be specific, bold, and commercially brilliant.`
 }
 
-function buildScreenshotPrompt({ platform, objective }) {
+export function buildScreenshotPrompt({ platform, objective }) {
   return `You are a world-class Creative Director analyzing a competitor or reference ad creative.
 
 Analyze this ad thoroughly, then generate a fresh creative brief inspired by its structure and effectiveness — with a completely original concept.
@@ -166,91 +196,3 @@ Direct response optimized version.
 
 Agency-grade output only.`
 }
-
-// ─── Streaming with model fallback ────────────────────────────────────────────
-
-async function streamToResponse(res, contents) {
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
-  res.setHeader('Connection', 'keep-alive')
-  res.flushHeaders()
-
-  let lastError = null
-
-  for (const modelName of MODEL_CHAIN) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) await sleep(3000)
-
-      try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: { maxOutputTokens: 4096, temperature: 0.9 }
-        })
-
-        const result = await model.generateContentStream(contents)
-        res.write(`data: ${JSON.stringify({ model: modelName })}\n\n`)
-
-        for await (const chunk of result.stream) {
-          try {
-            const text = chunk.text()
-            if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`)
-          } catch (_) {}
-        }
-
-        res.write('data: [DONE]\n\n')
-        res.end()
-        return
-
-      } catch (err) {
-        lastError = err
-        if (isRetryable(err) && attempt === 0) continue
-        break
-      }
-    }
-  }
-
-  res.write(`data: ${JSON.stringify({ error: `All models unavailable. ${lastError?.message?.substring(0, 150)}` })}\n\n`)
-  res.write('data: [DONE]\n\n')
-  res.end()
-}
-
-// ─── Routes ───────────────────────────────────────────────────────────────────
-
-app.post('/api/generate', async (req, res) => {
-  const { brandName, product, targetAudience, platform, objective } = req.body
-  if (!brandName || !product || !platform || !objective) {
-    return res.status(400).json({ error: 'Missing required fields' })
-  }
-  await streamToResponse(res, buildPrompt({ brandName, product, targetAudience, platform, objective }))
-})
-
-app.post('/api/analyze-screenshot', async (req, res) => {
-  const { base64, mimeType, platform, objective } = req.body
-  if (!base64 || !mimeType) return res.status(400).json({ error: 'base64 and mimeType required' })
-
-  await streamToResponse(res, [
-    { text: buildScreenshotPrompt({ platform, objective }) },
-    { inlineData: { data: base64, mimeType } }
-  ])
-})
-
-app.post('/api/generate-image', (req, res) => {
-  const { prompt, platform } = req.body
-  if (!prompt) return res.status(400).json({ error: 'Prompt is required' })
-
-  const { w, h } = PLATFORM_DIMS[platform] || { w: 1024, h: 1024 }
-  const seed = Math.floor(Math.random() * 999999)
-  const imageUrl =
-    `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
-    `?width=${w}&height=${h}&model=flux&nologo=true&enhance=true&seed=${seed}`
-
-  res.json({ imageUrl, model: 'Flux · Pollinations.ai', dimensions: `${w}×${h}`, aspectRatio: ASPECT_RATIOS[platform] || '1:1' })
-})
-
-// ─── Start ────────────────────────────────────────────────────────────────────
-
-app.listen(3001, () => {
-  console.log(`\nLocal server: http://localhost:3001`)
-  console.log(`API Key : ${apiKey ? '✓ Loaded from .env' : '✗ Missing'}`)
-  console.log(`Models  : ${MODEL_CHAIN.join(' → ')}\n`)
-})

@@ -487,11 +487,17 @@ export default function App() {
 
   const handleAnalyze = () => {
     if (!screenshot) { setError('Please upload a screenshot first.'); return }
-    const fd = new FormData()
-    fd.append('image', screenshot)
-    fd.append('platform', form.platform)
-    fd.append('objective', form.objective)
-    streamFromUrl('/api/analyze-screenshot', { method: 'POST', body: fd })
+    const reader = new FileReader()
+    reader.readAsDataURL(screenshot)
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1]
+      streamFromUrl('/api/analyze-screenshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, mimeType: screenshot.type, platform: form.platform, objective: form.objective })
+      })
+    }
+    reader.onerror = () => setError('Failed to read image. Try again.')
   }
 
   const sections = output ? parseSections(output) : []
