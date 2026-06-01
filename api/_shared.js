@@ -44,7 +44,7 @@ export async function streamToResponse(res, contents) {
   res.setHeader('Connection', 'keep-alive')
   res.flushHeaders()
 
-  let lastError = null
+  const errors = {}
 
   for (const modelName of MODEL_CHAIN) {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -71,14 +71,15 @@ export async function streamToResponse(res, contents) {
         return
 
       } catch (err) {
-        lastError = err
+        errors[modelName] = err.message?.match(/\[(\d+)[^\]]*\]/)?.[1] || err.message?.substring(0, 60)
         if (isRetryable(err) && attempt === 0) continue
         break
       }
     }
   }
 
-  res.write(`data: ${JSON.stringify({ error: `All models unavailable. ${lastError?.message?.substring(0, 150)}` })}\n\n`)
+  const summary = Object.entries(errors).map(([m, e]) => `${m}: ${e}`).join(' | ')
+  res.write(`data: ${JSON.stringify({ error: `All models failed.\n${summary}` })}\n\n`)
   res.write('data: [DONE]\n\n')
   res.end()
 }
