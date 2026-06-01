@@ -1,7 +1,7 @@
 node_modules/
 dist/
 
-# Environment — NEVER commit these
+# Environment files — NEVER commit these
 .env
 .env.local
 .env.*.local
