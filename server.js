@@ -11,8 +11,14 @@ const app = express()
 app.use(express.json({ limit: '10mb' }))
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'] }))
 
-const genAI     = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) // text + streaming
-const imagenAI  = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY }) // image generation
+const apiKey = process.env.GOOGLE_API_KEY
+if (!apiKey) {
+  console.error('Error: GOOGLE_API_KEY is not set in environment variables.')
+  process.exit(1)
+}
+
+const genAI     = new GoogleGenerativeAI(apiKey) // text + streaming
+const imagenAI  = new GoogleGenAI({ apiKey: apiKey }) // image generation
 const upload    = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 // Platform → aspect ratio map
@@ -28,7 +34,7 @@ const ASPECT_RATIOS = {
 
 // ─── Model fallback chain ─────────────────────────────────────────────────────
 // If primary model returns 503/429/404, next model is tried automatically.
-const PRIMARY = process.env.GEMINI_MODEL || 'gemini-3.5-flash'
+const PRIMARY = 'gemini-3.5-flash'
 const MODEL_CHAIN = [...new Set([
   PRIMARY,
   'gemini-2.5-flash',
@@ -292,9 +298,9 @@ app.post('/api/generate-image', (req, res) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3001
+const PORT = 3001
 app.listen(PORT, () => {
   console.log(`\nServer ready at http://localhost:${PORT}`)
-  console.log(`API Key : ${process.env.GOOGLE_API_KEY ? '✓ Loaded' : '✗ Missing — set GOOGLE_API_KEY in .env'}`)
+  console.log(`API Key : ${apiKey ? '✓ Loaded' : '✗ Missing — set GOOGLE_API_KEY in .env'}`)
   console.log(`Model chain: ${MODEL_CHAIN.join(' → ')}\n`)
 })
