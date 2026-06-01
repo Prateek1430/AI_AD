@@ -295,6 +295,6 @@ app.post('/api/generate-image', (req, res) => {
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`\nServer ready at http://localhost:${PORT}`)
-  console.log(`API Key : ${process.env.GOOGLE_API_KEY ? '✓ Loaded' : '✗ Missing'}`)
+  console.log(`API Key : ${process.env.GOOGLE_API_KEY ? '✓ Loaded' : '✗ Missing — set GOOGLE_API_KEY in .env'}`)
   console.log(`Model chain: ${MODEL_CHAIN.join(' → ')}\n`)
 })
