@@ -404,8 +404,7 @@ function LoadingDots({ model }) {
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [tab, setTab] = useState('form')
-  const [uploadType, setUploadType] = useState('reference') // 'logo' | 'reference' | 'product'
+  const [uploadType, setUploadType] = useState('none') // 'none' | 'logo' | 'reference' | 'product'
   const [form, setForm] = useState({
     brandName: '',
     product: '',
@@ -473,32 +472,31 @@ export default function App() {
       setError('Brand Name and Product are required.')
       return
     }
-    streamFromUrl('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    })
+    if (uploadType !== 'none' && screenshot) {
+      const reader = new FileReader()
+      reader.readAsDataURL(screenshot)
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1]
+        streamFromUrl('/api/analyze-screenshot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64, mimeType: screenshot.type, platform: form.platform, objective: form.objective, uploadType })
+        })
+      }
+      reader.onerror = () => setError('Failed to read image. Try again.')
+    } else {
+      streamFromUrl('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+    }
   }
 
   const handleFileSelect = file => {
     if (!file || !file.type.startsWith('image/')) return
     setScreenshot(file)
     setScreenshotPreview(URL.createObjectURL(file))
-  }
-
-  const handleAnalyze = () => {
-    if (!screenshot) { setError('Please upload a screenshot first.'); return }
-    const reader = new FileReader()
-    reader.readAsDataURL(screenshot)
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1]
-      streamFromUrl('/api/analyze-screenshot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64, mimeType: screenshot.type, platform: form.platform, objective: form.objective, uploadType })
-      })
-    }
-    reader.onerror = () => setError('Failed to read image. Try again.')
   }
 
   const sections = output ? parseSections(output) : []
@@ -534,145 +532,108 @@ export default function App() {
           </p>
         </div>
 
-        {/* ── Mode Tabs ── */}
-        <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 mb-8 w-fit mx-auto">
-          {[
-            ['form', '✦ Generate Creative'],
-            ['screenshot', '⊕ From Screenshot']
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => { setTab(key); setError('') }}
-              className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                tab === key
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/20'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         {/* ── Form Card ── */}
         <div className="bg-surface border border-border rounded-2xl p-6 sm:p-8 mb-8 card-glow">
+          <div className="space-y-6">
 
-          {tab === 'form' ? (
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Brand Name" name="brandName" value={form.brandName} onChange={handleChange} placeholder="e.g. Nuqi Gold" required />
-                <Field label="Product / Service" name="product" value={form.product} onChange={handleChange} placeholder="e.g. Gold Investment App" required />
+            {/* Brand fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Brand Name" name="brandName" value={form.brandName} onChange={handleChange} placeholder="e.g. Nuqi Gold" required />
+              <Field label="Product / Service" name="product" value={form.product} onChange={handleChange} placeholder="e.g. Gold Investment App" required />
+            </div>
+            <Field
+              label="Target Audience"
+              name="targetAudience"
+              value={form.targetAudience}
+              onChange={handleChange}
+              placeholder="e.g. Working Professionals 25–45  (optional — will be inferred)"
+            />
+
+            {/* Upload type */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-3 uppercase tracking-wider">
+                Visual Context <span className="text-gray-600 normal-case">(optional)</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { key: 'none',      icon: '✦', label: 'Text Only',     desc: 'No image needed' },
+                  { key: 'logo',      icon: '◈', label: 'Brand Logo',    desc: 'Brand-aligned brief' },
+                  { key: 'reference', icon: '◎', label: 'Reference Ad',  desc: 'Deconstruct & inspire' },
+                  { key: 'product',   icon: '◉', label: 'Product Photo', desc: 'Product as hero' },
+                ].map(({ key, icon, label, desc }) => (
+                  <button
+                    key={key}
+                    onClick={() => { setUploadType(key); setScreenshot(null); setScreenshotPreview(null) }}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      uploadType === key
+                        ? 'border-indigo-500 bg-indigo-500/10 shadow-sm shadow-indigo-500/20'
+                        : 'border-border bg-input hover:border-indigo-500/40'
+                    }`}
+                  >
+                    <span className={`text-base mb-1.5 block ${uploadType === key ? 'text-indigo-400' : 'text-gray-500'}`}>{icon}</span>
+                    <p className={`text-xs font-semibold mb-0.5 ${uploadType === key ? 'text-white' : 'text-gray-300'}`}>{label}</p>
+                    <p className="text-xs text-gray-600">{desc}</p>
+                  </button>
+                ))}
               </div>
-              <Field
-                label="Target Audience"
-                name="targetAudience"
-                value={form.targetAudience}
-                onChange={handleChange}
-                placeholder="e.g. Working Professionals 25–45  (optional — will be inferred)"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <SelectField label="Platform" name="platform" value={form.platform} onChange={handleChange} options={PLATFORMS} />
-                <SelectField label="Objective" name="objective" value={form.objective} onChange={handleChange} options={OBJECTIVES} />
-              </div>
-
-              {error && <p className="text-red-400 text-sm bg-red-400/5 border border-red-400/20 rounded-xl px-4 py-3">{error}</p>}
-
-              <button
-                onClick={handleGenerate}
-                disabled={loading}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-semibold text-sm tracking-wide transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {loading ? <span className="flex items-center justify-center gap-2"><LoadingDots model={activeModel} /></span> : 'Generate Creative Brief →'}
-              </button>
             </div>
 
-          ) : (
-            <div className="space-y-5">
-
-              {/* Upload type selector */}
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-3 uppercase tracking-wider">Upload Type</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { key: 'logo',      icon: '◈', label: 'Brand Logo',     desc: 'Generate brand-aligned creative from your logo' },
-                    { key: 'reference', icon: '◎', label: 'Reference Ad',   desc: 'Deconstruct a competitor or inspiration ad' },
-                    { key: 'product',   icon: '◉', label: 'Product Photo',  desc: 'Build campaign around your product image' },
-                  ].map(({ key, icon, label, desc }) => (
-                    <button
-                      key={key}
-                      onClick={() => { setUploadType(key); setScreenshot(null); setScreenshotPreview(null) }}
-                      className={`p-4 rounded-xl border text-left transition-all ${
-                        uploadType === key
-                          ? 'border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10'
-                          : 'border-border bg-input hover:border-indigo-500/40'
-                      }`}
-                    >
-                      <span className={`text-lg mb-2 block ${uploadType === key ? 'text-indigo-400' : 'text-gray-500'}`}>{icon}</span>
-                      <p className={`text-sm font-semibold mb-1 ${uploadType === key ? 'text-white' : 'text-gray-300'}`}>{label}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Drop zone */}
+            {/* Drop zone — only when upload type is selected */}
+            {uploadType !== 'none' && (
               <div
                 onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={e => { e.preventDefault(); setDragOver(false); handleFileSelect(e.dataTransfer.files[0]) }}
                 onClick={() => fileRef.current.click()}
-                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
                   dragOver ? 'border-indigo-500 bg-indigo-500/5' : 'border-border hover:border-indigo-500/50 hover:bg-[#13131F]'
                 }`}
               >
                 {screenshotPreview ? (
-                  <div className="space-y-3">
-                    <img src={screenshotPreview} alt="Preview" className="max-h-64 mx-auto rounded-lg shadow-xl" />
+                  <div className="space-y-2">
+                    <img src={screenshotPreview} alt="Preview" className="max-h-48 mx-auto rounded-lg shadow-xl" />
                     <p className="text-xs text-gray-500">{screenshot?.name} — click to change</p>
                   </div>
                 ) : (
                   <>
-                    <div className="text-3xl mb-3 text-gray-600">⊕</div>
+                    <div className="text-2xl mb-2 text-gray-600">⊕</div>
                     <p className="text-gray-400 text-sm font-medium">
-                      {uploadType === 'logo' ? 'Drop your brand logo here' : uploadType === 'product' ? 'Drop your product photo here' : 'Drop a reference ad here'}
+                      {uploadType === 'logo' ? 'Drop your brand logo' : uploadType === 'product' ? 'Drop your product photo' : 'Drop a reference ad'}
                     </p>
-                    <p className="text-gray-600 text-xs mt-1">or click to browse — PNG, JPG, WEBP up to 10MB</p>
+                    <p className="text-gray-600 text-xs mt-1">PNG, JPG, WEBP up to 10MB</p>
                   </>
                 )}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => handleFileSelect(e.target.files[0])}
-                />
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileSelect(e.target.files[0])} />
               </div>
+            )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <SelectField label="Platform" name="platform" value={form.platform} onChange={handleChange} options={PLATFORMS} />
-                <SelectField label="Objective" name="objective" value={form.objective} onChange={handleChange} options={OBJECTIVES} />
-              </div>
-
-              {error && <p className="text-red-400 text-sm bg-red-400/5 border border-red-400/20 rounded-xl px-4 py-3">{error}</p>}
-
-              <button
-                onClick={handleAnalyze}
-                disabled={loading || !screenshot}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-semibold text-sm tracking-wide transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {loading
-                  ? <span className="flex items-center justify-center gap-2"><LoadingDots model={activeModel} /></span>
-                  : uploadType === 'logo' ? 'Analyze Logo & Generate Brief →' : uploadType === 'product' ? 'Analyze Product & Generate Brief →' : 'Analyze Reference & Generate Brief →'
-                }
-              </button>
-
-              {!screenshot && (
-                <p className="text-center text-xs text-gray-600">
-                  Upload any ad image — we'll deconstruct it and generate an original brief inspired by it.
-                </p>
-              )}
+            {/* Platform & Objective */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SelectField label="Platform" name="platform" value={form.platform} onChange={handleChange} options={PLATFORMS} />
+              <SelectField label="Objective" name="objective" value={form.objective} onChange={handleChange} options={OBJECTIVES} />
             </div>
-          )}
+
+            {error && <p className="text-red-400 text-sm bg-red-400/5 border border-red-400/20 rounded-xl px-4 py-3">{error}</p>}
+
+            <button
+              onClick={handleGenerate}
+              disabled={loading || (uploadType !== 'none' && !screenshot)}
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-semibold text-sm tracking-wide transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {loading
+                ? <span className="flex items-center justify-center gap-2"><LoadingDots model={activeModel} /></span>
+                : uploadType === 'none' ? 'Generate Creative Brief →'
+                : uploadType === 'logo' ? 'Analyze Logo & Generate →'
+                : uploadType === 'product' ? 'Analyze Product & Generate →'
+                : 'Analyze Reference & Generate →'
+              }
+            </button>
+
+            {uploadType !== 'none' && !screenshot && (
+              <p className="text-center text-xs text-gray-600">Upload an image to enable visual analysis</p>
+            )}
+
+          </div>
         </div>
 
         {/* ── Output ── */}
