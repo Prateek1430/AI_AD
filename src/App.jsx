@@ -405,6 +405,7 @@ function LoadingDots({ model }) {
 
 export default function App() {
   const [tab, setTab] = useState('form')
+  const [uploadType, setUploadType] = useState('reference') // 'logo' | 'reference' | 'product'
   const [form, setForm] = useState({
     brandName: '',
     product: '',
@@ -494,7 +495,7 @@ export default function App() {
       streamFromUrl('/api/analyze-screenshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64, mimeType: screenshot.type, platform: form.platform, objective: form.objective })
+        body: JSON.stringify({ base64, mimeType: screenshot.type, platform: form.platform, objective: form.objective, uploadType })
       })
     }
     reader.onerror = () => setError('Failed to read image. Try again.')
@@ -587,6 +588,33 @@ export default function App() {
 
           ) : (
             <div className="space-y-5">
+
+              {/* Upload type selector */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-3 uppercase tracking-wider">Upload Type</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { key: 'logo',      icon: '◈', label: 'Brand Logo',     desc: 'Generate brand-aligned creative from your logo' },
+                    { key: 'reference', icon: '◎', label: 'Reference Ad',   desc: 'Deconstruct a competitor or inspiration ad' },
+                    { key: 'product',   icon: '◉', label: 'Product Photo',  desc: 'Build campaign around your product image' },
+                  ].map(({ key, icon, label, desc }) => (
+                    <button
+                      key={key}
+                      onClick={() => { setUploadType(key); setScreenshot(null); setScreenshotPreview(null) }}
+                      className={`p-4 rounded-xl border text-left transition-all ${
+                        uploadType === key
+                          ? 'border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10'
+                          : 'border-border bg-input hover:border-indigo-500/40'
+                      }`}
+                    >
+                      <span className={`text-lg mb-2 block ${uploadType === key ? 'text-indigo-400' : 'text-gray-500'}`}>{icon}</span>
+                      <p className={`text-sm font-semibold mb-1 ${uploadType === key ? 'text-white' : 'text-gray-300'}`}>{label}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Drop zone */}
               <div
                 onDragOver={e => { e.preventDefault(); setDragOver(true) }}
@@ -605,7 +633,9 @@ export default function App() {
                 ) : (
                   <>
                     <div className="text-3xl mb-3 text-gray-600">⊕</div>
-                    <p className="text-gray-400 text-sm font-medium">Drop an ad screenshot here</p>
+                    <p className="text-gray-400 text-sm font-medium">
+                      {uploadType === 'logo' ? 'Drop your brand logo here' : uploadType === 'product' ? 'Drop your product photo here' : 'Drop a reference ad here'}
+                    </p>
                     <p className="text-gray-600 text-xs mt-1">or click to browse — PNG, JPG, WEBP up to 10MB</p>
                   </>
                 )}
@@ -632,7 +662,7 @@ export default function App() {
               >
                 {loading
                   ? <span className="flex items-center justify-center gap-2"><LoadingDots model={activeModel} /></span>
-                  : 'Analyze & Generate Brief →'
+                  : uploadType === 'logo' ? 'Analyze Logo & Generate Brief →' : uploadType === 'product' ? 'Analyze Product & Generate Brief →' : 'Analyze Reference & Generate Brief →'
                 }
               </button>
 

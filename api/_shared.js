@@ -205,3 +205,109 @@ Direct response optimized version.
 
 Agency-grade output only.`
 }
+
+export function buildLogoPrompt({ platform, objective }) {
+  return `You are a world-class Brand Strategist and Creative Director. A brand has shared their logo. Analyze it deeply and build a complete ad creative brief that is perfectly aligned with what this logo communicates.
+
+Platform: ${platform || 'Instagram'}
+Objective: ${objective || 'Conversions'}
+
+## Logo Analysis
+Analyze the logo: design style, color psychology, typography personality, what industry and audience it signals, brand positioning it implies (premium / playful / corporate / bold / minimal), and overall brand energy. Rate brand strength 1–10.
+
+## Campaign Concept
+A campaign concept that feels like a natural extension of this logo's identity and brand promise.
+
+## Ad Headlines
+5 headlines numbered 1–5. Must feel tonally consistent with the brand logo's personality.
+
+## Ad Copy
+3 copy options numbered 1–3. Voice and tone must match what the logo communicates.
+
+## CTA Options
+5 CTAs numbered 1–5.
+
+## Visual Direction
+Art direction that complements the logo — colors, photography style, layout philosophy, how the logo integrates into the creative.
+
+## Creative Layout Structure
+Top / Middle / Bottom breakdown with logo placement strategy.
+
+## AI Image Generation Prompt
+Write a single ready-to-use prompt for DALL-E 3 or Gemini — natural language, no special syntax. The visual should feel like it belongs in the same brand universe as this logo. Cover: subject, setting, photography style, lighting, color palette that complements the logo's colors. End with: "Professional advertising photography quality, sharp details, magazine-worthy composition, highly realistic."
+
+## Color Palette
+4–5 hex colors extracted or inspired by the logo palette, with emotional roles.
+
+## Font Recommendations
+Fonts that pair naturally with this logo's typography DNA.
+
+## Designer Notes
+5 notes on how to maintain brand consistency with this logo across ads.
+
+## Creative Variations
+
+### Luxury Version
+Premium brand positioning version aligned with logo identity.
+
+### Modern Minimal Version
+Clean execution that lets the logo breathe.
+
+### High Conversion Sales Version
+Direct response version with strong CTA, brand-consistent.
+
+Agency-grade brand-aligned output only.`
+}
+
+export function buildProductPrompt({ platform, objective }) {
+  return `You are a world-class Creative Director and Performance Marketer. A brand has shared a product photo. Build a high-converting ad creative brief centered around this specific product.
+
+Platform: ${platform || 'Instagram'}
+Objective: ${objective || 'Conversions'}
+
+## Product Analysis
+Analyze the product: what it is, its design quality, materials, color, perceived price point, likely use case, who would buy it, and what emotional need it fulfills. Identify the strongest visual selling point.
+
+## Campaign Concept
+A campaign concept that makes this product the hero — a concept that makes people stop scrolling and want it.
+
+## Ad Headlines
+5 product-focused headlines numbered 1–5. Feature-benefit driven, emotionally resonant.
+
+## Ad Copy
+3 copy options numbered 1–3. Each must make the product feel desirable and worth buying now.
+
+## CTA Options
+5 CTAs numbered 1–5. Purchase/conversion focused.
+
+## Visual Direction
+How to shoot this product at its absolute best — angles, surfaces, props, context, lifestyle or pure product shot, hero composition.
+
+## Creative Layout Structure
+Top / Middle / Bottom with product placement as the hero element.
+
+## AI Image Generation Prompt
+Write a single ready-to-use prompt for DALL-E 3 or Gemini — natural language, no special syntax. Make the product look incredibly desirable. Cover: product placement, surrounding environment/props, photography style (luxury product photography / lifestyle / flat lay / editorial), exact lighting to make the product shine, color mood. End with: "Professional product advertising photography, ultra-sharp product detail, magazine-worthy composition, highly realistic and aspirational."
+
+## Color Palette
+4–5 hex colors derived from the product's color story.
+
+## Font Recommendations
+Fonts that complement the product's aesthetic positioning.
+
+## Designer Notes
+5 production notes on how to shoot and style this product for maximum conversion.
+
+## Creative Variations
+
+### Luxury Version
+Make the product look like a premium, coveted object.
+
+### Modern Minimal Version
+Clean product-hero composition, white space, elegant.
+
+### High Conversion Sales Version
+Urgency, social proof, price-value communication — buy now energy.
+
+Agency-grade product-focused output only.`
+}
