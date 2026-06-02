@@ -118,7 +118,19 @@ Detailed art direction: mood, imagery, photography or illustration style, lighti
 Exact layout with Top / Middle / Bottom breakdown. Include element placement, visual hierarchy, and spacing philosophy.
 
 ## AI Image Generation Prompt
-One complete, ready-to-paste prompt for Midjourney or DALL-E 3. Include subject, style, lighting, composition, camera details, and quality modifiers (e.g. --ar 4:5 --q 2).
+Write a single, highly detailed, ready-to-paste Midjourney prompt. Think like a professional art director and photographer combined. Structure it exactly like this — in one continuous paragraph, no line breaks:
+
+[SUBJECT & SCENE]: Describe the main subject with extreme specificity — what they look like, what they're doing, their expression, position. Include any product placement naturally. Describe the setting/background in detail.
+
+[STYLE]: Choose ONE of: ultra-realistic commercial photography | cinematic film still | high-end fashion editorial | luxury product photography | bold graphic design | architectural visualization | lifestyle documentary. Add the specific camera and lens (e.g. "shot on Sony A7R V, 85mm f/1.4 lens, shallow depth of field").
+
+[LIGHTING]: Specify exactly — e.g. "soft octabox key light from camera left, rim light from behind, warm practical lights in background" OR "golden hour backlight, lens flare, warm 5600K" OR "dramatic chiaroscuro, single hard light source top right".
+
+[COLOR GRADING]: Specific look — e.g. "desaturated teal and orange color grade" | "warm filmic Kodak Portra 400 tones" | "cool clinical blue whites" | "rich jewel tones, high contrast".
+
+[TECHNICAL QUALITY]: "hyperrealistic, 8K resolution, razor sharp, professional retouching, magazine quality, --ar [platform ratio] --q 2 --s 750"
+
+Also add a negative prompt: "ugly, blurry, low quality, distorted, watermark, text overlay, amateur, stock photo aesthetic, overexposed"
 
 ## Color Palette
 4–5 colors with exact hex codes. State each color's role and the emotion it drives.
@@ -173,7 +185,7 @@ New art direction that matches or exceeds the reference ad's production quality.
 Layout structure mirroring what works in the reference (Top / Middle / Bottom).
 
 ## AI Image Generation Prompt
-Complete Midjourney / DALL-E 3 prompt, ready to use.
+Write a single, highly detailed, ready-to-paste Midjourney prompt inspired by the reference ad's visual style — but completely original. Think like a professional art director. One continuous paragraph covering: specific subject & scene, photography/design style with camera specs, exact lighting setup, color grading, and technical quality modifiers. End with: "--ar [platform ratio] --q 2 --s 750" and a negative prompt line starting with "Negative: ugly, blurry, stock photo aesthetic, amateur, watermark..."
 
 ## Color Palette
 4–5 hex colors with roles and emotional purpose.
