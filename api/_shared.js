@@ -118,15 +118,23 @@ Detailed art direction: mood, imagery, photography or illustration style, lighti
 Exact layout with Top / Middle / Bottom breakdown. Include element placement, visual hierarchy, and spacing philosophy.
 
 ## AI Image Generation Prompt
-Write a single ready-to-use prompt for DALL-E 3 or Gemini image generation (natural language, no special syntax or parameters). Think as a professional art director. Write in flowing descriptive sentences covering these 5 layers:
+Think as a senior graphic designer and art director at a top agency. Write ONE ready-to-use image prompt for DALL-E 3 or Gemini. Natural language only — no special syntax, no asterisks, no brackets.
 
-1. SUBJECT: Exactly who/what is in the frame — person's look, expression, pose, clothing, product placement
-2. SCENE & BACKGROUND: Where it's set, what's around them, depth of environment
-3. PHOTOGRAPHY STYLE: e.g. "ultra-realistic luxury commercial photography" / "high-end lifestyle editorial" / "cinematic product still" — and camera feel (sharp focus, shallow depth of field, etc.)
-4. LIGHTING & MOOD: Exactly how it's lit — e.g. "soft diffused studio lighting with a warm backlight" / "golden hour sunlight streaming through glass" / "dramatic single-source hard light creating strong shadows"
-5. COLOR & FINISH: Color palette feel — e.g. "warm amber and cream tones, rich contrast, film-like quality" / "cool muted tones, high-end minimalist look"
+First decide the AD VISUAL FORMAT: is this (a) a lifestyle/human-led photograph, (b) a clean product-on-background studio shot, (c) a bold graphic/typographic design composition, or (d) an abstract concept visual? Choose what best fits the brand and platform.
 
-End the prompt with: "Professional advertising photography quality, sharp details, magazine-worthy composition, highly realistic."
+Then write the prompt covering all of these in smooth, connected sentences:
+
+COMPOSITION: Describe the exact visual layout — where the subject/product sits in the frame, amount of negative space, visual flow direction, foreground and background separation. Be specific: "centered hero product on lower third with generous empty space above for headline" or "full-bleed human subject from waist up, product held at chest height, right-side weighted composition."
+
+SUBJECT & DETAIL: For people — exact appearance, skin tone, expression, clothing texture, pose energy. For products — exact angle (45°, flat lay, hero front-facing), surface material, props, context objects. Make it visual and specific.
+
+DESIGN AESTHETIC & MOOD: Pick one and describe it fully — luxury minimalism / raw editorial / vibrant bold / cinematic drama / warm human / clinical premium / playful energetic.
+
+COLOR STORY: Name the exact colors — primary background tone (e.g. "deep charcoal #1a1a1a"), accent color (e.g. "electric gold"), highlight (e.g. "warm cream white"). Describe how they create mood.
+
+LIGHTING: Be precise — "large softbox from camera-left, subtle fill from right, warm rim light separating subject from background" or "harsh direct overhead light creating graphic shadows" or "backlit golden hour haze with lens flare".
+
+END with this exact line: "No text, no typography, no watermarks in the image. Ultra high-end advertising visual, hyperrealistic, professional retouching, magazine cover quality."
 
 ## Color Palette
 4–5 colors with exact hex codes. State each color's role and the emotion it drives.
@@ -287,7 +295,7 @@ How to shoot this product at its absolute best — angles, surfaces, props, cont
 Top / Middle / Bottom with product placement as the hero element.
 
 ## AI Image Generation Prompt
-Write a single ready-to-use prompt for DALL-E 3 or Gemini — natural language, no special syntax. Make the product look incredibly desirable. Cover: product placement, surrounding environment/props, photography style (luxury product photography / lifestyle / flat lay / editorial), exact lighting to make the product shine, color mood. End with: "Professional product advertising photography, ultra-sharp product detail, magazine-worthy composition, highly realistic and aspirational."
+Think as a senior graphic designer. Write ONE ready-to-use prompt for DALL-E 3 or Gemini. Natural language, no special syntax. Decide the best visual format for this product (studio shot / lifestyle / flat lay / 3D render style). Then describe: exact product angle and position in frame, surface/background (what material, color, texture), surrounding props or context that elevate it, lighting setup that makes this product irresistible (e.g. "single hard light from top-right casting a dramatic shadow to the left, with a subtle warm reflection on the surface"), exact color palette. End with: "No text or typography in the image. Hyperrealistic product advertising photography, razor-sharp product detail, aspirational and desirable, magazine quality."
 
 ## Color Palette
 4–5 hex colors derived from the product's color story.
@@ -310,4 +318,86 @@ Clean product-hero composition, white space, elegant.
 Urgency, social proof, price-value communication — buy now energy.
 
 Agency-grade product-focused output only.`
+}
+
+export function buildCombinedPrompt({ types, platform, objective, brandName, product }) {
+  const typeLabels = {
+    logo: 'Brand Logo',
+    reference: 'Reference Ad',
+    product: 'Product Photo'
+  }
+  const imageList = types.map((t, i) => `Image ${i + 1} — ${typeLabels[t]}`).join('\n')
+
+  const instructions = {
+    logo: 'Analyze the brand logo: color palette, typography style, design language, brand personality it communicates, target audience it signals, and quality tier (budget/mid/premium/luxury).',
+    reference: 'Analyze the reference ad: visual hierarchy, emotional hook, copy strategy, layout structure, color psychology, photography style, what makes it effective, and what could be improved.',
+    product: 'Analyze the product: design quality, materials, color, perceived price point, unique visual appeal, and best angles/contexts for advertising.'
+  }
+
+  const analysisInstructions = types.map((t, i) =>
+    `Image ${i + 1} (${typeLabels[t]}): ${instructions[t]}`
+  ).join('\n\n')
+
+  return `You are a world-class Creative Director, Brand Strategist, and Senior Graphic Designer.
+
+You have been given ${types.length} reference image${types.length > 1 ? 's' : ''}:
+${imageList}
+
+Brand: ${brandName || 'Infer from images'}
+Product/Service: ${product || 'Infer from images'}
+Platform: ${platform || 'Instagram'}
+Objective: ${objective || 'Conversions'}
+
+STEP 1 — ANALYZE EACH IMAGE:
+${analysisInstructions}
+
+STEP 2 — SYNTHESIZE: Combine all visual inputs into one cohesive creative strategy. The logo defines the brand DNA. The reference shows proven structure. The product is the hero.
+
+Now generate the complete ad creative brief:
+
+## Visual Analysis
+Detailed breakdown of each uploaded image and the key insights extracted from each.
+
+## Campaign Concept
+A campaign concept that integrates all visual inputs — brand-consistent, structurally strong, product-forward.
+
+## Ad Headlines
+5 headlines numbered 1–5.
+
+## Ad Copy
+3 copy options numbered 1–3.
+
+## CTA Options
+5 CTAs numbered 1–5.
+
+## Visual Direction
+Art direction that synthesizes the brand logo's identity, the reference ad's proven structure, and the product's visual appeal.
+
+## Creative Layout Structure
+Top / Middle / Bottom breakdown informed by the reference ad's best structural elements.
+
+## AI Image Generation Prompt
+Think as a senior graphic designer. Write ONE ready-to-use prompt for DALL-E 3 or Gemini. Natural language only. Incorporate the brand's color palette from the logo, the composition style from the reference, and the product prominently. Describe: visual format, exact composition and layout, subject/product details and placement, background and environment, lighting setup with precision, color story referencing the brand colors. End with: "No text or typography in the image. Hyperrealistic advertising visual, professional retouching, magazine quality."
+
+## Color Palette
+4–5 hex colors drawn from the uploaded brand assets.
+
+## Font Recommendations
+Fonts that match the brand logo's typographic personality.
+
+## Designer Notes
+5 production notes on how to execute this multi-asset campaign cohesively.
+
+## Creative Variations
+
+### Luxury Version
+Premium version using the brand identity at its most elevated.
+
+### Modern Minimal Version
+Clean, design-forward execution of the brand assets.
+
+### High Conversion Sales Version
+Direct response version — product hero, strong CTA, conversion-optimized.
+
+Agency-grade output synthesizing all provided brand assets.`
 }

@@ -403,8 +403,23 @@ function LoadingDots({ model }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
+const UPLOAD_TYPES = [
+  { key: 'logo',      icon: '◈', label: 'Brand Logo',    desc: 'Brand identity & color DNA' },
+  { key: 'reference', icon: '◎', label: 'Reference Ad',  desc: 'Deconstruct & get inspired' },
+  { key: 'product',   icon: '◉', label: 'Product Photo', desc: 'Make product the hero' },
+]
+
+const fileToBase64 = file => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.readAsDataURL(file)
+  reader.onload = () => resolve(reader.result.split(',')[1])
+  reader.onerror = reject
+})
+
 export default function App() {
-  const [uploadType, setUploadType] = useState('none') // 'none' | 'logo' | 'reference' | 'product'
+  const [selectedTypes, setSelectedTypes] = useState(new Set()) // multi-select
+  const [uploads, setUploads] = useState({})   // { logo: {file, preview}, reference: {...}, product: {...} }
+  const [dragOver, setDragOver] = useState(null) // which type is being dragged over
   const [form, setForm] = useState({
     brandName: '',
     product: '',
@@ -416,13 +431,28 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [activeModel, setActiveModel] = useState('')
   const [error, setError] = useState('')
-  const [screenshot, setScreenshot] = useState(null)
-  const [screenshotPreview, setScreenshotPreview] = useState(null)
-  const [dragOver, setDragOver] = useState(false)
-  const fileRef = useRef()
+  const fileRefs = { logo: useRef(), reference: useRef(), product: useRef() }
   const outputRef = useRef()
 
   const handleChange = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }))
+
+  const toggleType = key => {
+    setSelectedTypes(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+        setUploads(u => { const n = { ...u }; delete n[key]; return n })
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
+  const handleFileSelect = (type, file) => {
+    if (!file || !file.type.startsWith('image/')) return
+    setUploads(prev => ({ ...prev, [type]: { file, preview: URL.createObjectURL(file) } }))
+  }
 
   const streamFromUrl = useCallback(async (url, options) => {
     setLoading(true)
@@ -467,23 +497,31 @@ export default function App() {
     setTimeout(() => outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
   }, [])
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!form.brandName.trim() || !form.product.trim()) {
       setError('Brand Name and Product are required.')
       return
     }
-    if (uploadType !== 'none' && screenshot) {
-      const reader = new FileReader()
-      reader.readAsDataURL(screenshot)
-      reader.onload = () => {
-        const base64 = reader.result.split(',')[1]
+
+    const typesWithUploads = [...selectedTypes].filter(t => uploads[t]?.file)
+
+    if (typesWithUploads.length > 0) {
+      try {
+        const images = {}
+        for (const type of typesWithUploads) {
+          images[type] = {
+            base64: await fileToBase64(uploads[type].file),
+            mimeType: uploads[type].file.type
+          }
+        }
         streamFromUrl('/api/analyze-screenshot', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64, mimeType: screenshot.type, platform: form.platform, objective: form.objective, uploadType })
+          body: JSON.stringify({ images, platform: form.platform, objective: form.objective, brandName: form.brandName, product: form.product })
         })
+      } catch {
+        setError('Failed to read image. Try again.')
       }
-      reader.onerror = () => setError('Failed to read image. Try again.')
     } else {
       streamFromUrl('/api/generate', {
         method: 'POST',
@@ -491,12 +529,6 @@ export default function App() {
         body: JSON.stringify(form)
       })
     }
-  }
-
-  const handleFileSelect = file => {
-    if (!file || !file.type.startsWith('image/')) return
-    setScreenshot(file)
-    setScreenshotPreview(URL.createObjectURL(file))
   }
 
   const sections = output ? parseSections(output) : []
@@ -549,63 +581,74 @@ export default function App() {
               placeholder="e.g. Working Professionals 25–45  (optional — will be inferred)"
             />
 
-            {/* Upload type */}
+            {/* Upload type — multi-select */}
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-3 uppercase tracking-wider">
-                Visual Context <span className="text-gray-600 normal-case">(optional)</span>
+                Visual Context <span className="text-gray-600 normal-case font-normal">(optional · select multiple)</span>
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { key: 'none',      icon: '✦', label: 'Text Only',     desc: 'No image needed' },
-                  { key: 'logo',      icon: '◈', label: 'Brand Logo',    desc: 'Brand-aligned brief' },
-                  { key: 'reference', icon: '◎', label: 'Reference Ad',  desc: 'Deconstruct & inspire' },
-                  { key: 'product',   icon: '◉', label: 'Product Photo', desc: 'Product as hero' },
-                ].map(({ key, icon, label, desc }) => (
-                  <button
-                    key={key}
-                    onClick={() => { setUploadType(key); setScreenshot(null); setScreenshotPreview(null) }}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      uploadType === key
-                        ? 'border-indigo-500 bg-indigo-500/10 shadow-sm shadow-indigo-500/20'
-                        : 'border-border bg-input hover:border-indigo-500/40'
-                    }`}
-                  >
-                    <span className={`text-base mb-1.5 block ${uploadType === key ? 'text-indigo-400' : 'text-gray-500'}`}>{icon}</span>
-                    <p className={`text-xs font-semibold mb-0.5 ${uploadType === key ? 'text-white' : 'text-gray-300'}`}>{label}</p>
-                    <p className="text-xs text-gray-600">{desc}</p>
-                  </button>
-                ))}
+              <div className="grid grid-cols-3 gap-3">
+                {UPLOAD_TYPES.map(({ key, icon, label, desc }) => {
+                  const active = selectedTypes.has(key)
+                  const hasFile = !!uploads[key]?.preview
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => toggleType(key)}
+                      className={`p-3 rounded-xl border text-left transition-all relative ${
+                        active
+                          ? 'border-indigo-500 bg-indigo-500/10 shadow-sm shadow-indigo-500/20'
+                          : 'border-border bg-input hover:border-indigo-500/40'
+                      }`}
+                    >
+                      {hasFile && (
+                        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-green-400" />
+                      )}
+                      <span className={`text-base mb-1.5 block ${active ? 'text-indigo-400' : 'text-gray-500'}`}>{icon}</span>
+                      <p className={`text-xs font-semibold mb-0.5 ${active ? 'text-white' : 'text-gray-300'}`}>{label}</p>
+                      <p className="text-xs text-gray-600">{desc}</p>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Drop zone — only when upload type is selected */}
-            {uploadType !== 'none' && (
-              <div
-                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={e => { e.preventDefault(); setDragOver(false); handleFileSelect(e.dataTransfer.files[0]) }}
-                onClick={() => fileRef.current.click()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-                  dragOver ? 'border-indigo-500 bg-indigo-500/5' : 'border-border hover:border-indigo-500/50 hover:bg-[#13131F]'
-                }`}
-              >
-                {screenshotPreview ? (
-                  <div className="space-y-2">
-                    <img src={screenshotPreview} alt="Preview" className="max-h-48 mx-auto rounded-lg shadow-xl" />
-                    <p className="text-xs text-gray-500">{screenshot?.name} — click to change</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="text-2xl mb-2 text-gray-600">⊕</div>
-                    <p className="text-gray-400 text-sm font-medium">
-                      {uploadType === 'logo' ? 'Drop your brand logo' : uploadType === 'product' ? 'Drop your product photo' : 'Drop a reference ad'}
-                    </p>
-                    <p className="text-gray-600 text-xs mt-1">PNG, JPG, WEBP up to 10MB</p>
-                  </>
-                )}
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileSelect(e.target.files[0])} />
+            {/* Drop zone per selected type */}
+            {UPLOAD_TYPES.filter(t => selectedTypes.has(t.key)).map(({ key, icon, label }) => (
+              <div key={key}>
+                <p className="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
+                  <span className="text-indigo-400">{icon}</span> {label}
+                </p>
+                <div
+                  onDragOver={e => { e.preventDefault(); setDragOver(key) }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={e => { e.preventDefault(); setDragOver(null); handleFileSelect(key, e.dataTransfer.files[0]) }}
+                  onClick={() => fileRefs[key].current.click()}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                    dragOver === key ? 'border-indigo-500 bg-indigo-500/5' : 'border-border hover:border-indigo-500/50 hover:bg-[#13131F]'
+                  }`}
+                >
+                  {uploads[key]?.preview ? (
+                    <div className="space-y-2">
+                      <img src={uploads[key].preview} alt={label} className="max-h-40 mx-auto rounded-lg shadow-xl" />
+                      <p className="text-xs text-gray-500">{uploads[key].file?.name} — click to change</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-xl mb-2 text-gray-600">⊕</div>
+                      <p className="text-gray-400 text-sm">Drop {label.toLowerCase()} here</p>
+                      <p className="text-gray-600 text-xs mt-1">PNG, JPG, WEBP up to 10MB</p>
+                    </>
+                  )}
+                  <input
+                    ref={fileRefs[key]}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => handleFileSelect(key, e.target.files[0])}
+                  />
+                </div>
               </div>
-            )}
+            ))}
 
             {/* Platform & Objective */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -617,20 +660,21 @@ export default function App() {
 
             <button
               onClick={handleGenerate}
-              disabled={loading || (uploadType !== 'none' && !screenshot)}
+              disabled={loading}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-semibold text-sm tracking-wide transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading
                 ? <span className="flex items-center justify-center gap-2"><LoadingDots model={activeModel} /></span>
-                : uploadType === 'none' ? 'Generate Creative Brief →'
-                : uploadType === 'logo' ? 'Analyze Logo & Generate →'
-                : uploadType === 'product' ? 'Analyze Product & Generate →'
-                : 'Analyze Reference & Generate →'
+                : selectedTypes.size === 0
+                  ? 'Generate Creative Brief →'
+                  : `Analyze ${[...selectedTypes].map(t => ({ logo: 'Logo', reference: 'Reference', product: 'Product' })[t]).join(' + ')} & Generate →`
               }
             </button>
 
-            {uploadType !== 'none' && !screenshot && (
-              <p className="text-center text-xs text-gray-600">Upload an image to enable visual analysis</p>
+            {selectedTypes.size > 0 && [...selectedTypes].some(t => !uploads[t]?.file) && (
+              <p className="text-center text-xs text-gray-600">
+                Upload images for: {[...selectedTypes].filter(t => !uploads[t]?.file).map(t => ({ logo: 'Brand Logo', reference: 'Reference Ad', product: 'Product Photo' })[t]).join(', ')}
+              </p>
             )}
 
           </div>

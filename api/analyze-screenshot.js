@@ -1,6 +1,12 @@
-import { buildScreenshotPrompt, buildLogoPrompt, buildProductPrompt, streamToResponse } from './_shared.js'
+import {
+  buildScreenshotPrompt,
+  buildLogoPrompt,
+  buildProductPrompt,
+  buildCombinedPrompt,
+  streamToResponse
+} from './_shared.js'
 
-const PROMPT_MAP = {
+const SINGLE_PROMPT = {
   logo:      buildLogoPrompt,
   reference: buildScreenshotPrompt,
   product:   buildProductPrompt,
@@ -9,16 +15,28 @@ const PROMPT_MAP = {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
-  const { base64, mimeType, platform, objective, uploadType = 'reference' } = req.body
-  if (!base64 || !mimeType) {
-    return res.status(400).json({ error: 'Image data required (base64 + mimeType)' })
+  const { images, platform, objective, brandName, product } = req.body
+
+  // images = { logo: {base64, mimeType}, reference: {...}, product: {...} }
+  const types = Object.keys(images || {}).filter(t => images[t]?.base64)
+
+  if (types.length === 0) {
+    return res.status(400).json({ error: 'At least one image required' })
   }
 
-  const buildPrompt = PROMPT_MAP[uploadType] || buildScreenshotPrompt
+  let promptText
+  if (types.length === 1) {
+    const buildFn = SINGLE_PROMPT[types[0]] || buildScreenshotPrompt
+    promptText = buildFn({ platform, objective, brandName, product })
+  } else {
+    promptText = buildCombinedPrompt({ types, platform, objective, brandName, product })
+  }
 
   const contents = [
-    { text: buildPrompt({ platform, objective }) },
-    { inlineData: { data: base64, mimeType } }
+    { text: promptText },
+    ...types.map(t => ({
+      inlineData: { data: images[t].base64, mimeType: images[t].mimeType }
+    }))
   ]
 
   await streamToResponse(res, contents)
