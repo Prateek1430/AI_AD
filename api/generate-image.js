@@ -70,6 +70,47 @@ async function tryDallE(prompt, platform) {
   }
 }
 
+// HuggingFace — free with token, returns base64 (no browser load issues)
+const HF_MODELS = [
+  'black-forest-labs/FLUX.1-schnell',        // fast, high quality
+  'stabilityai/stable-diffusion-xl-base-1.0' // SDXL fallback
+]
+
+async function tryHuggingFace(prompt) {
+  if (!process.env.HUGGINGFACE_TOKEN) return null
+
+  for (const model of HF_MODELS) {
+    try {
+      console.log(`[hf] trying ${model}...`)
+      const response = await fetch(
+        `https://router.huggingface.co/hf-inference/models/${model}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.HUGGINGFACE_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ inputs: prompt }),
+        }
+      )
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+      const contentType = response.headers.get('content-type') || 'image/jpeg'
+      const buffer = Buffer.from(await response.arrayBuffer())
+
+      console.log(`[hf] success — ${model}`)
+      return {
+        image: `data:${contentType};base64,${buffer.toString('base64')}`,
+        model: `${model.split('/')[1]} · HuggingFace`
+      }
+    } catch (err) {
+      console.error(`[hf] ${model}:`, err.message?.substring(0, 80))
+    }
+  }
+  return null
+}
+
 async function tryGrok(prompt) {
   if (!process.env.GROK_API_KEY) return null
   try {
@@ -107,12 +148,13 @@ export default async function handler(req, res) {
   const refCount = Object.values(images).filter(v => v?.base64).length
   console.log(`[image-gen] platform=${platform} refs=${refCount}`)
 
-  // Priority chain: Nano Banana → DALL-E 3 → Grok → Pollinations (always works)
+  // Priority: Nano Banana → HuggingFace → DALL-E 3 → Grok → Pollinations URL
   const result =
     await tryNanoBanana(prompt, images) ||
+    await tryHuggingFace(prompt) ||
     await tryDallE(prompt, platform) ||
     await tryGrok(prompt) ||
-    tryPollinations(prompt, platform) // sync, always returns URL
+    tryPollinations(prompt, platform) // sync, always returns URL — final safety net
 
   res.json({
     ...result,
