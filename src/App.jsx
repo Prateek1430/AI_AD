@@ -264,11 +264,14 @@ function ImageGenerator({ prompt, platform }) {
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      // URL is ready — image still needs to render (show spinner until onLoad)
-      setImageUrl(data.imageUrl)
+      // Support both base64 (data.image) and CDN URL (data.imageUrl)
+      const src = data.image || data.imageUrl
+      if (!src) throw new Error('No image returned from server')
+      setImageUrl(src)
       setUsedModel(data.model)
       setDims(data.dimensions)
-      setStatus('loading') // image is fetching from Pollinations
+      // base64 = instant render (done), URL = needs browser fetch (loading)
+      setStatus(data.image ? 'done' : 'loading')
     } catch (e) {
       setErrMsg(e.message)
       setStatus('error')
