@@ -87,26 +87,14 @@ async function tryGrok(prompt) {
   }
 }
 
-async function tryPollinations(prompt, platform) {
+function tryPollinations(prompt, platform) {
   const { w, h } = PLATFORM_DIMS[platform] || { w: 1024, h: 1024 }
   const seed = Math.floor(Math.random() * 999999)
-  const url =
+  const imageUrl =
     `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
     `?width=${w}&height=${h}&model=flux&nologo=true&enhance=true&seed=${seed}`
-
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(45000) })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const buffer = Buffer.from(await res.arrayBuffer())
-    return {
-      image: `data:image/jpeg;base64,${buffer.toString('base64')}`,
-      model: 'Flux · Pollinations.ai',
-      dimensions: `${w}×${h}`
-    }
-  } catch (err) {
-    console.error('[pollinations]:', err.message)
-    return null
-  }
+  // Return URL directly — browser fetches image, no server timeout risk
+  return { imageUrl, model: 'Flux · Pollinations.ai', dimensions: `${w}×${h}` }
 }
 
 export default async function handler(req, res) {
@@ -119,16 +107,12 @@ export default async function handler(req, res) {
   const refCount = Object.values(images).filter(v => v?.base64).length
   console.log(`[image-gen] platform=${platform} refs=${refCount}`)
 
-  // Priority chain: Nano Banana (with refs) → DALL-E 3 → Grok → Pollinations
+  // Priority chain: Nano Banana → DALL-E 3 → Grok → Pollinations (always works)
   const result =
     await tryNanoBanana(prompt, images) ||
     await tryDallE(prompt, platform) ||
     await tryGrok(prompt) ||
-    await tryPollinations(prompt, platform)
-
-  if (!result) {
-    return res.status(500).json({ error: 'All image generation services failed. Try again.' })
-  }
+    tryPollinations(prompt, platform) // sync, always returns URL
 
   res.json({
     ...result,

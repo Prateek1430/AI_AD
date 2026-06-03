@@ -251,6 +251,7 @@ function ImageGenerator({ prompt, platform, uploadedImages }) {
   const [usedModel, setUsedModel] = useState('')
   const [dims, setDims]           = useState('')
   const [errMsg, setErrMsg]       = useState('')
+  const [loadRetry, setLoadRetry] = useState(0)
 
   const hasRefs = uploadedImages && Object.keys(uploadedImages).length > 0
 
@@ -322,7 +323,7 @@ function ImageGenerator({ prompt, platform, uploadedImages }) {
         <div className="rounded-xl border border-border bg-[#0A0A14] p-10 flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
           <p className="text-gray-500 text-xs text-center">
-            Flux is rendering your ad visual…<br />
+            {loadRetry > 0 ? `Retrying… (${loadRetry}/2)` : 'Generating your ad visual…'}<br />
             <span className="text-gray-600">usually 5–15 seconds</span>
           </p>
         </div>
@@ -337,7 +338,16 @@ function ImageGenerator({ prompt, platform, uploadedImages }) {
               alt="Generated ad creative"
               className={`w-full object-cover rounded-xl transition-opacity duration-500 ${status === 'done' ? 'opacity-100' : 'opacity-0 absolute'}`}
               onLoad={() => setStatus('done')}
-              onError={() => { setStatus('error'); setErrMsg('Image failed to load from Pollinations. Try regenerating.') }}
+              onError={() => {
+                if (loadRetry < 2) {
+                  // Auto-retry with cache-bust — Pollinations sometimes needs a second try
+                  setLoadRetry(r => r + 1)
+                  setImageUrl(u => u.split('&_r=')[0] + `&_r=${Date.now()}`)
+                } else {
+                  setStatus('error')
+                  setErrMsg('Image generation timed out. Click Regenerate to try again.')
+                }
+              }}
             />
             {status === 'done' && (
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
