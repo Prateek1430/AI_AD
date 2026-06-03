@@ -175,7 +175,7 @@ function ColorSwatch({ hex }) {
   )
 }
 
-function SectionCard({ section, isLast, isStreaming, platform }) {
+function SectionCard({ section, isLast, isStreaming, platform, uploadedImages }) {
   const [copied, setCopied] = useState(false)
   const meta = SECTION_META[section.title] || { icon: '◈', wide: false }
   const hexColors = section.title === 'Color Palette' ? extractHexCodes(section.content) : []
@@ -224,7 +224,7 @@ function SectionCard({ section, isLast, isStreaming, platform }) {
             </button>
           </div>
           {!isStreaming && section.content.trim() && (
-            <ImageGenerator prompt={section.content.trim()} platform={platform} />
+            <ImageGenerator prompt={section.content.trim()} platform={platform} uploadedImages={uploadedImages} />
           )}
         </div>
       ) : (
@@ -245,12 +245,14 @@ function SectionCard({ section, isLast, isStreaming, platform }) {
 
 // ─── Image Generator ──────────────────────────────────────────────────────────
 
-function ImageGenerator({ prompt, platform }) {
+function ImageGenerator({ prompt, platform, uploadedImages }) {
   const [status, setStatus]       = useState('idle') // idle | waiting | loading | done | error
   const [imageUrl, setImageUrl]   = useState(null)
   const [usedModel, setUsedModel] = useState('')
   const [dims, setDims]           = useState('')
   const [errMsg, setErrMsg]       = useState('')
+
+  const hasRefs = uploadedImages && Object.keys(uploadedImages).length > 0
 
   const generate = async () => {
     setStatus('waiting')
@@ -260,7 +262,7 @@ function ImageGenerator({ prompt, platform }) {
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim(), platform })
+        body: JSON.stringify({ prompt: prompt.trim(), platform, images: uploadedImages || {} })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -298,7 +300,7 @@ function ImageGenerator({ prompt, platform }) {
       onClick={generate}
       className="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600/20 to-purple-600/20 hover:from-indigo-600/40 hover:to-purple-600/40 border border-indigo-500/30 hover:border-indigo-500/60 text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-all flex items-center justify-center gap-2"
     >
-      <span>⬡</span> Generate Image
+      <span>⬡</span> Generate Image {hasRefs && <span className="ml-1 text-xs bg-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-full">with {Object.keys(uploadedImages).join(' + ')} reference</span>}
     </button>
   )
 
@@ -452,6 +454,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [activeModel, setActiveModel] = useState('')
   const [error, setError] = useState('')
+  const [uploadedImages, setUploadedImages] = useState({}) // compressed base64 versions for image gen
   const fileRefs = { logo: useRef(), reference: useRef(), product: useRef() }
   const outputRef = useRef()
 
@@ -536,6 +539,7 @@ export default function App() {
             mimeType: 'image/jpeg'
           }
         }
+        setUploadedImages(images) // save for image generation reference
         streamFromUrl('/api/analyze-screenshot', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -736,6 +740,7 @@ export default function App() {
                     isLast={i === sections.length - 1}
                     isStreaming={loading}
                     platform={form.platform}
+                    uploadedImages={uploadedImages}
                   />
                 ))}
               </div>

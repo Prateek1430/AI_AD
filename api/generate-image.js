@@ -15,19 +15,33 @@ const DALLE_SIZES = {
 // Nano Banana models (Google image generation)
 const NANO_BANANA_MODELS = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image']
 
-async function tryNanoBanana(prompt) {
+async function tryNanoBanana(prompt, images = {}) {
   const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY })
+
+  // Build parts: text prompt + any uploaded reference images
+  const refEntries = Object.entries(images).filter(([, v]) => v?.base64)
+  const parts = []
+
+  if (refEntries.length > 0) {
+    parts.push({ text: `Generate a high-quality advertising image based on this prompt. Use the provided reference images for visual context — incorporate the brand colors, style, composition, and identity you see in them.\n\nImage prompt:\n${prompt}` })
+    for (const [type, img] of refEntries) {
+      parts.push({ text: `Reference (${type}):` })
+      parts.push({ inlineData: { data: img.base64, mimeType: img.mimeType || 'image/jpeg' } })
+    }
+  } else {
+    parts.push({ text: prompt })
+  }
 
   for (const model of NANO_BANANA_MODELS) {
     try {
       const response = await ai.models.generateContent({
         model,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts }],
         config: { responseModalities: ['IMAGE', 'TEXT'] }
       })
 
-      const parts = response?.candidates?.[0]?.content?.parts ?? []
-      const imgPart = parts.find(p => p.inlineData?.data)
+      const resParts = response?.candidates?.[0]?.content?.parts ?? []
+      const imgPart = resParts.find(p => p.inlineData?.data)
       if (!imgPart) continue
 
       return {
@@ -98,14 +112,16 @@ async function tryPollinations(prompt, platform) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
-  const { prompt, platform } = req.body
+  const { prompt, platform, images = {} } = req.body
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' })
 
   const dims = PLATFORM_DIMS[platform] || { w: 1024, h: 1024 }
+  const refCount = Object.values(images).filter(v => v?.base64).length
+  console.log(`[image-gen] platform=${platform} refs=${refCount}`)
 
-  // Priority chain: Nano Banana → DALL-E 3 → Grok → Pollinations
+  // Priority chain: Nano Banana (with refs) → DALL-E 3 → Grok → Pollinations
   const result =
-    await tryNanoBanana(prompt) ||
+    await tryNanoBanana(prompt, images) ||
     await tryDallE(prompt, platform) ||
     await tryGrok(prompt) ||
     await tryPollinations(prompt, platform)
